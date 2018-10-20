@@ -76,19 +76,6 @@ void add_rule(Rule* new_rule){
 	rules[rules_counter++] = new_rule;
 }
 
-void preparse(){
-	Token* t;
-	t = get_next_token();
-	if(strcmp(t->token_id, "DECLARATION") == 0){
-		declaration = t->lexeme;
-		t = get_next_token();
-		if(strcmp(t->token_id, "EOL") == 0) t = get_next_token();
-		if(strcmp(t->token_id, "_EOSC_") == 0) return; else throw_exception("Expected token \"_EOSC_\", actual token is \"%s\"", t->token_id);
-	}
-	if(strcmp(t->token_id, "EOL") == 0) t = get_next_token();
-	if(strcmp(t->token_id, "_EOSC_") == 0) return; else throw_exception("Expected token \"_EOSC_\", actual token is \"%s\"", t->token_id);
-}
-
 /********************** Rules printing *****************************/
 
 void print_rule(int i){
