@@ -5,7 +5,7 @@ Rule* expanded_rule;
 
 %%
 
-<grammar>		::=		<declaration> <syntax> { expanded_rule = new_rule(1); expanded_rule->head = nonterminals[0]; expanded_rule->body[0] = rules[1]->head; rules[0] = expanded_rule;}
+<grammar>		::=	<declaration> <syntax> { expanded_rule = new_rule(1); expanded_rule->head = nonterminals[0]; expanded_rule->body[0] = rules[1]->head; rules[0] = expanded_rule;}
 <syntax>		::= 	<rule> <syntax-rest> 
 <declaration>	::=		""	| "_EOSC_" "EOL"	|	"EOL" "_EOSC_" "EOL"	|	"DECLARATION" "EOL" "_EOSC_" "EOL" {declaration = ((Token*)$1)->lexeme;}	|	"EOL" "DECLARATION" "EOL" "_EOSC_" "EOL" {declaration = ((Token*)$2)->lexeme;}
 <rule>			::= 	"NONTERMINAL" "::=" <expression> "EOL" {for(int i = rules_counter_temp; i < rules_counter; i++){rules[i]->head = $1;} rules_counter_temp = rules_counter;}
@@ -16,9 +16,9 @@ Rule* expanded_rule;
 <nonempty-expression>		::= 	<list> <semantic-action> <nonempty-expression-rest> {$$ = $1; ((Rule*)$1)->action = $2; add_rule($1); }
 <list>			::= 	<term> <list-rest> {$$ = new_rule(0); add_rule_2_rule($$, $1); add_rule_2_rule($$, $2); delete_rule($1); delete_rule($2);}
 <list-rest>		::= 	"" {$$ = new_rule(0);}	|	<list> {$$ = $1;}
-<semantic-action> 			::=		""	|	"O_BRACKET" <semantic-action-m> "C_BRACKET" {$$ = $2;}
-<semantic-action-m>		::=		"" {$$ = "";}	|	"SEMANTIC_ACTION_TEXT"	{$$ = ((Token*)$1)->lexeme;}	|	<semantic-action-b> "O_BRACKET" <semantic-action-m> "C_BRACKET" <semantic-action-m> {sp = 0; $$ = malloc(sizeof(char) * (strlen($1) + strlen($3) + strlen($5) + 3)); strcpy($$ + sp, $1); sp += strlen($1); strcpy($$ + sp, "{"); sp++; strcpy($$ + sp, $3); sp += strlen($3); strcpy($$ + sp, "}"); sp++; strcpy($$ + sp, $5); sp += strlen($5); ((char*)$$)[sp] = '\0';}
-<semantic-action-b>		::=		"" {$$ = "";}	|	"SEMANTIC_ACTION_TEXT" {$$ = ((Token*)$1)->lexeme;}
+<semantic-action> 	::=	""	|	"O_BRACKET" <semantic-action-m> "C_BRACKET" {$$ = $2;}
+<semantic-action-m>	::=	"" {$$ = "";}	|	"SEMANTIC_ACTION_TEXT"	{$$ = ((Token*)$1)->lexeme;}	|	<semantic-action-b> "O_BRACKET" <semantic-action-m> "C_BRACKET" <semantic-action-m> {sp = 0; $$ = malloc(sizeof(char) * (strlen($1) + strlen($3) + strlen($5) + 3)); strcpy($$ + sp, $1); sp += strlen($1); strcpy($$ + sp, "{"); sp++; strcpy($$ + sp, $3); sp += strlen($3); strcpy($$ + sp, "}"); sp++; strcpy($$ + sp, $5); sp += strlen($5); ((char*)$$)[sp] = '\0';}
+<semantic-action-b>	::=	"" {$$ = "";}	|	"SEMANTIC_ACTION_TEXT" {$$ = ((Token*)$1)->lexeme;}
 <term>			::= 	"TERMINAL" {$$ = new_rule(1); ((Rule*)$$)->body[0] = $1;}	|	"NONTERMINAL" {$$ = new_rule(1); ((Rule*)$$)->body[0] = $1;}
 
 %%
