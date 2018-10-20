@@ -1,0 +1,116 @@
+%{
+int sp;
+Rule* expanded_rule;
+%}
+
+%%
+
+<grammar>		::=	<declaration> <syntax> { expanded_rule = new_rule(1); expanded_rule->head = nonterminals[0]; expanded_rule->body[0] = rules[1]->head; rules[0] = expanded_rule;}
+<syntax>		::= 	<rule> <syntax-rest> 
+<declaration>		::=	""	| "_EOSC_" "EOL"	|	"EOL" "_EOSC_" "EOL"	|	"DECLARATION" "EOL" "_EOSC_" "EOL" {declaration = ((Token*)$1)->lexeme;}	|	"EOL" "DECLARATION" "EOL" "_EOSC_" "EOL" {declaration = ((Token*)$2)->lexeme;}
+<rule>			::= 	"NONTERMINAL" "::=" <expression> "EOL" {for(int i = rules_counter_temp; i < rules_counter; i++){rules[i]->head = $1;} rules_counter_temp = rules_counter;}
+<syntax-rest>		::= 	""	|	<syntax> {$$ = $1;}
+<expression>		::= 	<list> <semantic-action> <expression-rest> {$$ = $1; ((Rule*)$1)->action = $2; add_rule($1);}	|	"EMPTY" <semantic-action> <nonempty-expression-rest> {$$ = new_rule(1); ((Rule*)$$)->body[0] = $1; ((Rule*)$$)->action = $2; add_rule($$);}
+<expression-rest>	::= 	"" {$$ = new_rule(0);}	|	"UNION" <expression>
+<nonempty-expression-rest>	::= 	"" {$$ = new_rule(0);}	|	"UNION" <nonempty-expression>
+<nonempty-expression>		::= 	<list> <semantic-action> <nonempty-expression-rest> {$$ = $1; ((Rule*)$1)->action = $2; add_rule($1); }
+<list>			::= 	<term> <list-rest> {$$ = new_rule(0); add_rule_2_rule($$, $1); add_rule_2_rule($$, $2); delete_rule($1); delete_rule($2);}
+<list-rest>		::= 	"" {$$ = new_rule(0);}	|	<list> {$$ = $1;}
+<semantic-action> 	::=	""	|	"O_BRACKET" <semantic-action-m> "C_BRACKET" {$$ = $2;}
+<semantic-action-m>	::=	"" {$$ = "";}	|	"SEMANTIC_ACTION_TEXT"	{$$ = ((Token*)$1)->lexeme;}	|	<semantic-action-b> "O_BRACKET" <semantic-action-m> "C_BRACKET" <semantic-action-m> {sp = 0; $$ = malloc(sizeof(char) * (strlen($1) + strlen($3) + strlen($5) + 3)); strcpy($$ + sp, $1); sp += strlen($1); strcpy($$ + sp, "\{"); sp++; strcpy($$ + sp, $3); sp += strlen($3); strcpy($$ + sp, "\}"); sp++; strcpy($$ + sp, $5); sp += strlen($5); ((char*)$$)[sp] = '\\0';}
+<semantic-action-b>	::=	"" {$$ = "";}	|	"SEMANTIC_ACTION_TEXT" {$$ = ((Token*)$1)->lexeme;}
+<term>			::= 	"TERMINAL" {$$ = new_rule(1); ((Rule*)$$)->body[0] = $1;}	|	"NONTERMINAL" {$$ = new_rule(1); ((Rule*)$$)->body[0] = $1;}
+
+%%
+
+Rule* new_rule(int body_length){
+	Rule* new_rule = malloc(sizeof(Rule));
+	new_rule->body_length = body_length;
+	new_rule->body = malloc(sizeof(Token*) * body_length);
+	new_rule->action = NULL;
+	return new_rule;
+}
+void delete_rule(Rule* r){
+	free(r->body);
+	free(r);
+}
+void add_token_2_rule(Rule* r, Token* t){
+	r->body_length++;
+	Token** body = r->body;
+
+	r->body = malloc(sizeof(Token*) * r->body_length);
+	for(int i = 0; i < r->body_length-1; i++) r->body[i] = body[i];
+
+	r->body[r->body_length-1] = t;
+}
+void add_rule_2_rule(Rule* r1, Rule* r2){
+	int old_length = r1->body_length;
+	int new_length = r1->body_length + r2->body_length;
+	Token** body = r1->body;
+
+	r1->body = malloc(sizeof(Token*) * new_length);
+	r1->body_length = new_length ;
+
+	for(int i = 0; i < old_length; i++) r1->body[i] = body[i];
+	for(int i = 0; i < r2->body_length; i++) r1->body[old_length + i] = r2->body[i];
+	
+	free(body);
+}
+
+static int rules_counter_temp = 1;
+static int rules_max_count = RULES_MAX_COUNT;
+void add_rule(Rule* new_rule){
+	if(rules == NULL){ 
+		rules = malloc(sizeof(Rule*) * rules_max_count);
+		for(int i = 0; i < rules_max_count; i++) rules[i] = NULL;
+		rules_counter = 1; 
+	}
+	if(rules_counter >= rules_max_count){
+		rules_max_count *= 2;
+		Rule** new_rules = malloc(sizeof(Rule*) * rules_max_count);
+		for(int i = 0; i < rules_counter; i++) new_rules[i] = rules[i];
+		for(int i = rules_counter; i < rules_max_count; i++) new_rules[i] = NULL;
+		free(rules);
+		rules = new_rules;
+	}
+	rules[rules_counter++] = new_rule;
+}
+
+void preparse(){
+	Token* t;
+	t = get_next_token();
+	if(strcmp(t->token_id, "DECLARATION") == 0){
+		declaration = t->lexeme;
+		t = get_next_token();
+		if(strcmp(t->token_id, "EOL") == 0) t = get_next_token();
+		if(strcmp(t->token_id, "_EOSC_") == 0) return; else throw_exception("Expected token \"_EOSC_\", actual token is \"%s\"", t->token_id);
+	}
+	if(strcmp(t->token_id, "EOL") == 0) t = get_next_token();
+	if(strcmp(t->token_id, "_EOSC_") == 0) return; else throw_exception("Expected token \"_EOSC_\", actual token is \"%s\"", t->token_id);
+}
+/********************** Rules printing *****************************/
+
+void print_rule(int i){
+	printf("<%s>",rules[i]->head->lexeme);
+	printf(" ::=");
+	for(int j = 0; j < rules[i]->body_length; j++){
+		if(strcmp(rules[i]->body[j]->token_id, "TERMINAL") == 0)
+			printf(" \"%s\"", rules[i]->body[j]->lexeme);
+		else if(strcmp(rules[i]->body[j]->token_id, "EMPTY") == 0)
+			printf(" empty");
+		else if(strcmp(rules[i]->body[j]->token_id, "UNION") == 0)
+			printf(" |");
+		else if(strcmp(rules[i]->body[j]->token_id, "NONTERMINAL") == 0)
+			printf(" <%s>", rules[i]->body[j]->lexeme);
+		else printf(" <%s>", rules[i]->body[j]->token_id);
+	}
+	if(rules[i]->action) printf(" {%s}", rules[i]->action);
+	printf("\n");
+}
+
+void print_rules(){
+	printf("\n");
+	for(int i = 1; i < rules_counter; i++){
+		print_rule(i);
+	}
+}

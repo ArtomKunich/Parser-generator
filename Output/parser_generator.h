@@ -1,0 +1,1 @@
+void generate_parser(FILE*, FILE*);
